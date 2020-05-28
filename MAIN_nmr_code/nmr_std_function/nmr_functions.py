@@ -10,62 +10,62 @@ from nmr_std_function.data_parser import convert_to_prospa_data_t1
 from nmr_std_function.signal_proc import nmr_fft
 
 
-def compute_wobble(data_parent_folder, meas_folder, s11_min, en_fig, fig_num):
-    data_folder = (data_parent_folder + '/' + meas_folder + '/')
+def compute_wobble( data_parent_folder, meas_folder, s11_min, en_fig, fig_num ):
+    data_folder = ( data_parent_folder + '/' + meas_folder + '/' )
 
-    (param_list, value_list) = data_parser.parse_info(
-        data_folder, 'acqu.par')  # read file
-    freqSta = data_parser.find_value('freqSta', param_list, value_list)
-    freqSto = data_parser.find_value('freqSto', param_list, value_list)
-    freqSpa = data_parser.find_value('freqSpa', param_list, value_list)
-    nSamples = data_parser.find_value('nSamples', param_list, value_list)
-    freqSamp = data_parser.find_value('freqSamp', param_list, value_list)
-    spect_bw = (freqSamp / nSamples) * 8
+    ( param_list, value_list ) = data_parser.parse_info( 
+        data_folder, 'acqu.par' )  # read file
+    freqSta = data_parser.find_value( 'freqSta', param_list, value_list )
+    freqSto = data_parser.find_value( 'freqSto', param_list, value_list )
+    freqSpa = data_parser.find_value( 'freqSpa', param_list, value_list )
+    nSamples = data_parser.find_value( 'nSamples', param_list, value_list )
+    freqSamp = data_parser.find_value( 'freqSamp', param_list, value_list )
+    spect_bw = ( freqSamp / nSamples ) * 8
 
     file_name_prefix = 'wobbdata_'
-    freqSw = np.arange(freqSta, freqSto, freqSpa)
-    S11 = np.zeros(len(freqSw))
-    for m in range(0, len(freqSw)):
+    freqSw = np.arange( freqSta, freqSto, freqSpa )
+    S11 = np.zeros( len( freqSw ) )
+    for m in range( 0, len( freqSw ) ):
         # for m in freqSw:
-        file_path = (data_folder + file_name_prefix +
-                     '{:4.3f}'.format(freqSw[m]))
-        one_scan = np.array(data_parser.read_data(file_path))
-        spectx, specty = nmr_fft(one_scan, freqSamp, 0)
+        file_path = ( data_folder + file_name_prefix +
+                     '{:4.3f}'.format( freqSw[m] ) )
+        one_scan = np.array( data_parser.read_data( file_path ) )
+        spectx, specty = nmr_fft( one_scan, freqSamp, 0 )
 
         # FIND INDEX WHERE THE MAXIMUM SIGNAL IS PRESENT
         # PRECISE METHOD: find reflection at the desired frequency: creating precision problem where usually the signal shift a little bit from its desired frequency
         # ref_idx = abs(spectx - freqSw[m]) == min(abs(spectx - freqSw[m]))
         # BETTER METHOD: find reflection signal peak around the bandwidth
-        ref_idx = (abs(spectx - freqSw[m]) <= spect_bw)
+        ref_idx = ( abs( spectx - freqSw[m] ) <= spect_bw )
 
-        S11[m] = max(specty[ref_idx])  # find reflection peak
+        S11[m] = max( specty[ref_idx] )  # find reflection peak
 
-    S11 = 20 * np.log10(S11 / max(S11))  # convert to dB scale
-    S11_min10dB = (S11 <= s11_min)
+    S11 = 20 * np.log10( S11 / max( S11 ) )  # convert to dB scale
+    S11_min10dB = ( S11 <= s11_min )
 
-    minS11 = min(S11)
-    minS11_freq = freqSw[np.argmin(S11)]
+    minS11 = min( S11 )
+    minS11_freq = freqSw[np.argmin( S11 )]
 
     try:
-        S11_fmin = min(freqSw[S11_min10dB])
-        S11_fmax = max(freqSw[S11_min10dB])
+        S11_fmin = min( freqSw[S11_min10dB] )
+        S11_fmax = max( freqSw[S11_min10dB] )
     except:
         S11_fmin = 0
         S11_fmax = 0
-        print('S11 requirement is not satisfied...')
+        print( 'S11 requirement is not satisfied...' )
 
     S11_bw = S11_fmax - S11_fmin
 
     if en_fig:
         plt.ion()
-        fig = plt.figure(fig_num)
+        fig = plt.figure( fig_num )
         fig.clf()
-        ax = fig.add_subplot(1, 1, 1)
-        line1, = ax.plot(freqSw, S11, 'r-')
-        ax.set_ylim(-50, 0)
-        ax.set_xlabel('Frequency [MHz]')
-        ax.set_ylabel('S11 [dB]')
-        ax.set_title("Reflection Measurement (S11) Parameter")
+        ax = fig.add_subplot( 1, 1, 1 )
+        line1, = ax.plot( freqSw, S11, 'r-' )
+        ax.set_ylim( -50, 0 )
+        ax.set_xlabel( 'Frequency [MHz]' )
+        ax.set_ylabel( 'S11 [dB]' )
+        ax.set_title( "Reflection Measurement (S11) Parameter" )
         ax.grid()
 
         fig.canvas.draw()
@@ -84,7 +84,7 @@ def compute_wobble(data_parent_folder, meas_folder, s11_min, en_fig, fig_num):
     return S11_fmin, S11_fmax, S11_bw, minS11, minS11_freq
 
 
-def compute_multiple(data_parent_folder, meas_folder, file_name_prefix, Df, Sf, tE, total_scan, en_fig, en_ext_param, thetaref, echoref_avg, direct_read, datain):
+def compute_multiple( data_parent_folder, meas_folder, file_name_prefix, Df, Sf, tE, total_scan, en_fig, en_ext_param, thetaref, echoref_avg, direct_read, datain ):
 
     # variables to be input
     # data_parent_folder : the folder for all datas
@@ -101,7 +101,7 @@ def compute_multiple(data_parent_folder, meas_folder, file_name_prefix, Df, Sf, 
     # datain            : the data captured direct reading. data format: AC,averaged scans, phase-cycled
     # direct_read        : perform direct reading from SDRAM/FIFO
 
-    data_folder = (data_parent_folder + '/' + meas_folder + '/')
+    data_folder = ( data_parent_folder + '/' + meas_folder + '/' )
 
     # variables local to this function
     # the setting file for the measurement
@@ -114,14 +114,14 @@ def compute_multiple(data_parent_folder, meas_folder, file_name_prefix, Df, Sf, 
     proc_indv_data = 0
 
     # variables from NMR settings
-    (param_list, value_list) = data_parser.parse_info(
-        data_folder, 'acqu.par')  # read file
-    SpE = int(data_parser.find_value(
-        'nrPnts', param_list, value_list))
-    NoE = int(data_parser.find_value(
-        'nrEchoes', param_list, value_list))
-    en_ph_cycle_proc = data_parser.find_value(
-        'usePhaseCycle', param_list, value_list)
+    ( param_list, value_list ) = data_parser.parse_info( 
+        data_folder, 'acqu.par' )  # read file
+    SpE = int( data_parser.find_value( 
+        'nrPnts', param_list, value_list ) )
+    NoE = int( data_parser.find_value( 
+        'nrEchoes', param_list, value_list ) )
+    en_ph_cycle_proc = data_parser.find_value( 
+        'usePhaseCycle', param_list, value_list )
     # tE = data_parser.find_value('echoTimeRun', param_list, value_list)
     # Sf = data_parser.find_value(
     #    'adcFreq', param_list, value_list) * 1e6
@@ -131,125 +131,131 @@ def compute_multiple(data_parent_folder, meas_folder, file_name_prefix, Df, Sf, 
     #    'nrIterations', param_list, value_list))
 
     # parse file and remove DC component
-    if (direct_read):
+    if ( direct_read ):
         data = datain
     else:
-        if (proc_indv_data):
+        if ( proc_indv_data ):
             # read all datas and average it
-            data = np.zeros(NoE * SpE)
-            for m in range(1, total_scan + 1):
-                file_path = (data_folder + file_name_prefix +
-                             '{0:03d}'.format(m))
+            data = np.zeros( NoE * SpE )
+            for m in range( 1, total_scan + 1 ):
+                file_path = ( data_folder + file_name_prefix +
+                             '{0:03d}'.format( m ) )
                 # read the data from the file and store it in numpy array
                 # format
-                one_scan = np.array(data_parser.read_data(file_path))
-                one_scan = (one_scan - np.mean(one_scan)) / \
+                one_scan = np.array( data_parser.read_data( file_path ) )
+                one_scan = ( one_scan - np.mean( one_scan ) ) / \
                     total_scan  # remove DC component
-                if (en_ph_cycle_proc):
-                    if (m % 2):  # phase cycling every other scan
+                if ( en_ph_cycle_proc ):
+                    if ( m % 2 ):  # phase cycling every other scan
                         data = data - one_scan
                     else:
                         data = data + one_scan
                 else:
                     data = data + one_scan
         else:
+
+            ignore_init_echo = 50  # ignore initial echo
+            NoE = NoE - ignore_init_echo
+
             # read sum data only
-            file_path = (data_folder + 'asum')
-            data = np.zeros(NoE * SpE)
-            data = np.array(data_parser.read_data(file_path))
-            data = (data - np.mean(data)) / \
+            file_path = ( data_folder + 'asum' )
+            data = np.zeros( NoE * SpE )
+            data = np.array( data_parser.read_data( file_path ) )
+            data = ( data - np.mean( data ) ) / \
                 total_scan  # remove DC component
 
+            data = data[ignore_init_echo * SpE:len( data )]
+
     if en_fig:  # plot the averaged scan
-        echo_space = (1 / Sf) * np.linspace(1, SpE, SpE)  # in s
-        plt.figure(1)
-        for i in range(1, NoE + 1):
-            plt.plot(((i - 1) * tE * 1e-6 + echo_space) * 1e3,
-                     data[(i - 1) * SpE:i * SpE], linewidth=0.4)
+        echo_space = ( 1 / Sf ) * np.linspace( 1, SpE, SpE )  # in s
+        plt.figure( 1 )
+        for i in range( 1, NoE + 1 ):
+            plt.plot( ( ( i - 1 ) * tE * 1e-6 + echo_space ) * 1e3,
+                     data[( i - 1 ) * SpE:i * SpE], linewidth = 0.4 )
 
     # filter the data
-    data_filt = np.zeros((NoE, SpE), dtype=complex)
-    for i in range(0, NoE):
-        data_filt[i, :] = down_conv(data[i * SpE:(i + 1) * SpE], i, tE, Df, Sf)
+    data_filt = np.zeros( ( NoE, SpE ), dtype = complex )
+    for i in range( 0, NoE ):
+        data_filt[i, :] = down_conv( data[i * SpE:( i + 1 ) * SpE], i, tE, Df, Sf )
 
     # scan rotation
     if en_ext_param:
-        data_filt = data_filt * np.exp(-1j * thetaref)
-        theta = math.atan2(np.sum(np.imag(data_filt)),
-                           np.sum(np.real(data_filt)))
+        data_filt = data_filt * np.exp( -1j * thetaref )
+        theta = math.atan2( np.sum( np.imag( data_filt ) ),
+                           np.sum( np.real( data_filt ) ) )
     else:
-        theta = math.atan2(np.sum(np.imag(data_filt)),
-                           np.sum(np.real(data_filt)))
+        theta = math.atan2( np.sum( np.imag( data_filt ) ),
+                           np.sum( np.real( data_filt ) ) )
         if perform_rotation:
-            data_filt = data_filt * np.exp(-1j * theta)
+            data_filt = data_filt * np.exp( -1j * theta )
 
     if en_fig:  # plot filtered data
-        echo_space = (1 / Sf) * np.linspace(1, SpE, SpE)  # in s
-        plt.figure(2)
-        for i in range(0, NoE):
-            plt.plot((i * tE * 1e-6 + echo_space) * 1e3,
-                     np.real(data_filt[i, :]), 'b', linewidth=0.4)
-            plt.plot((i * tE * 1e-6 + echo_space) * 1e3,
-                     np.imag(data_filt[i, :]), 'r', linewidth=0.4)
+        echo_space = ( 1 / Sf ) * np.linspace( 1, SpE, SpE )  # in s
+        plt.figure( 2 )
+        for i in range( 0, NoE ):
+            plt.plot( ( i * tE * 1e-6 + echo_space ) * 1e3,
+                     np.real( data_filt[i, :] ), 'b', linewidth = 0.4 )
+            plt.plot( ( i * tE * 1e-6 + echo_space ) * 1e3,
+                     np.imag( data_filt[i, :] ), 'r', linewidth = 0.4 )
 
     # find echo average, echo magnitude
-    echo_avg = np.zeros(SpE, dtype=complex)
-    for i in range(0, NoE):
-        echo_avg += (data_filt[i, :] / NoE)
+    echo_avg = np.zeros( SpE, dtype = complex )
+    for i in range( 0, NoE ):
+        echo_avg += ( data_filt[i, :] / NoE )
 
     if en_fig:  # plot echo shape
-        plt.figure(3)
-        tacq = (1 / Sf) * 1e6 * np.linspace(1, SpE, SpE)  # in uS
-        plt.plot(tacq, np.abs(echo_avg), label='abs')
-        plt.plot(tacq, np.real(echo_avg), label='real part')
-        plt.plot(tacq, np.imag(echo_avg), label='imag part')
-        plt.xlim(0, max(tacq))
-        plt.title("Echo Shape")
-        plt.xlabel('time(uS)')
-        plt.ylabel('amplitude')
+        plt.figure( 3 )
+        tacq = ( 1 / Sf ) * 1e6 * np.linspace( 1, SpE, SpE )  # in uS
+        plt.plot( tacq, np.abs( echo_avg ), label = 'abs' )
+        plt.plot( tacq, np.real( echo_avg ), label = 'real part' )
+        plt.plot( tacq, np.imag( echo_avg ), label = 'imag part' )
+        plt.xlim( 0, max( tacq ) )
+        plt.title( "Echo Shape" )
+        plt.xlabel( 'time(uS)' )
+        plt.ylabel( 'amplitude' )
         plt.legend()
 
         # plot fft of the echosum
-        plt.figure(4)
+        plt.figure( 4 )
         zf = 8  # zero filling factor to get smooth curve
-        ws = 2 * np.pi / (tacq[1] - tacq[0])  # in MHz
-        wvect = np.linspace(-ws / 2, ws / 2, len(tacq) * zf)
-        echo_zf = np.zeros(zf * len(echo_avg), dtype=complex)
-        echo_zf[int((zf / 2) * len(echo_avg) - len(echo_avg) / 2)
-                    : int((zf / 2) * len(echo_avg) + len(echo_avg) / 2)] = echo_avg
-        spect = zf * (np.fft.fftshift(np.fft.fft(np.fft.ifftshift(echo_zf))))
-        plt.plot(wvect / (2 * np.pi), np.real(spect),
-                 label='real')
-        plt.plot(wvect / (2 * np.pi), np.imag(spect),
-                 label='imag')
-        plt.xlim(4 / max(tacq) * -1, 4 / max(tacq) * 1)
-        plt.title("fft of the echo-sum")
-        plt.xlabel('offset frequency(MHz)')
-        plt.ylabel('Echo amplitude (a.u.)')
+        ws = 2 * np.pi / ( tacq[1] - tacq[0] )  # in MHz
+        wvect = np.linspace( -ws / 2, ws / 2, len( tacq ) * zf )
+        echo_zf = np.zeros( zf * len( echo_avg ), dtype = complex )
+        echo_zf[int( ( zf / 2 ) * len( echo_avg ) - len( echo_avg ) / 2 )
+                    : int( ( zf / 2 ) * len( echo_avg ) + len( echo_avg ) / 2 )] = echo_avg
+        spect = zf * ( np.fft.fftshift( np.fft.fft( np.fft.ifftshift( echo_zf ) ) ) )
+        plt.plot( wvect / ( 2 * np.pi ), np.real( spect ),
+                 label = 'real' )
+        plt.plot( wvect / ( 2 * np.pi ), np.imag( spect ),
+                 label = 'imag' )
+        plt.xlim( 4 / max( tacq ) * -1, 4 / max( tacq ) * 1 )
+        plt.title( "fft of the echo-sum" )
+        plt.xlabel( 'offset frequency(MHz)' )
+        plt.ylabel( 'Echo amplitude (a.u.)' )
         plt.legend()
 
     # matched filtering
-    a = np.zeros(NoE, dtype=complex)
-    for i in range(0, NoE):
+    a = np.zeros( NoE, dtype = complex )
+    for i in range( 0, NoE ):
         if en_ext_param:
-            a[i] = np.mean(np.multiply(data_filt[i, mtch_fltr_sta_idx:SpE], np.conj(
-                echoref_avg[mtch_fltr_sta_idx:SpE])))  # find amplitude with reference matched filtering
+            a[i] = np.mean( np.multiply( data_filt[i, mtch_fltr_sta_idx:SpE], np.conj( 
+                echoref_avg[mtch_fltr_sta_idx:SpE] ) ) )  # find amplitude with reference matched filtering
         else:
-            a[i] = np.mean(np.multiply(data_filt[i, mtch_fltr_sta_idx:SpE], np.conj(
-                echo_avg[mtch_fltr_sta_idx:SpE])))  # find amplitude with matched filtering
+            a[i] = np.mean( np.multiply( data_filt[i, mtch_fltr_sta_idx:SpE], np.conj( 
+                echo_avg[mtch_fltr_sta_idx:SpE] ) ) )  # find amplitude with matched filtering
 
-    a_integ = np.sum(np.real(a))
+    a_integ = np.sum( np.real( a ) )
 
-    t_echospace = tE / 1e6 * np.linspace(1, NoE, NoE)
+    t_echospace = tE / 1e6 * np.linspace( 1, NoE, NoE )
 
     # def exp_func(x, a, b, c, d):
     #    return a * np.exp(-b * x) + c * np.exp(-d * x)
-    def exp_func(x, a, b):
-        return a * np.exp(-b * x)
+    def exp_func( x, a, b ):
+        return a * np.exp( -b * x )
 
     # average the first 5% of datas
-    a_guess = np.mean(np.real(a[0:int(np.round(SpE / 20))]))
-    #c_guess = a_guess
+    a_guess = np.mean( np.real( a[0:int( np.round( SpE / 20 ) )] ) )
+    # c_guess = a_guess
     # find min idx value where the value of (a_guess/exp) is larger than
     # real(a)
     # b_guess = np.where(np.real(a) == np.min(
@@ -257,92 +263,92 @@ def compute_multiple(data_parent_folder, meas_folder, file_name_prefix, Df, Sf, 
     # this is dummy b_guess, use the one I made above this for smarter one
     # (but sometimes it doesn't work)
     b_guess = 10
-    #d_guess = b_guess
-    #guess = np.array([a_guess, b_guess, c_guess, d_guess])
-    guess = np.array([a_guess, b_guess])
+    # d_guess = b_guess
+    # guess = np.array([a_guess, b_guess, c_guess, d_guess])
+    guess = np.array( [a_guess, b_guess] )
 
     try:
-        popt, pocv = curve_fit(exp_func, t_echospace, np.real(a), guess)
+        popt, pocv = curve_fit( exp_func, t_echospace, np.real( a ), guess )
         a0 = popt[0]
         T2 = 1 / popt[1]
         # Estimate SNR/echo/scan
-        f = exp_func(t_echospace, *popt)  # curve fit
-        noise = np.std(np.imag(a))
-        res = np.std(np.real(a) - f)
-        snr = a0 / (noise * math.sqrt(total_scan))
+        f = exp_func( t_echospace, *popt )  # curve fit
+        noise = np.std( np.imag( a ) )
+        res = np.std( np.real( a ) - f )
+        snr = a0 / ( noise * math.sqrt( total_scan ) )
 
         if en_fig:
             # plot data
-            plt.figure(5)
+            plt.figure( 5 )
             plt.cla()
             # plot in milisecond
-            plt.plot(t_echospace * 1e3, np.real(a), label="real")
+            plt.plot( t_echospace * 1e3, np.real( a ), label = "real" )
             # plot in milisecond
-            plt.plot(t_echospace * 1e3, np.imag(a), label="imag")
+            plt.plot( t_echospace * 1e3, np.imag( a ), label = "imag" )
 
             # plot fitted line
-            plt.figure(5)
-            plt.plot(t_echospace * 1e3, f, label="fit")  # plot in milisecond
-            plt.plot(t_echospace * 1e3, np.real(a) - f, label="residue")
-            #plt.set(gca, 'FontSize', 12)
+            plt.figure( 5 )
+            plt.plot( t_echospace * 1e3, f, label = "fit" )  # plot in milisecond
+            plt.plot( t_echospace * 1e3, np.real( a ) - f, label = "residue" )
+            # plt.set(gca, 'FontSize', 12)
             plt.legend()
-            plt.title('Filtered data')
-            plt.xlabel('Time (mS)')
-            plt.ylabel('Amplitude')
+            plt.title( 'Filtered data' )
+            plt.xlabel( 'Time (mS)' )
+            plt.ylabel( 'Amplitude' )
 
         if en_fig:
             plt.show()
     except:
-        print('Problem in fitting. Set a0 and T2 output to 0\n')
+        print( 'Problem in fitting. Set a0 and T2 output to 0\n' )
         a0 = 0
         T2 = 0
         noise = 0
         res = 0
         snr = 0
 
-    print('a0 = ' + '{0:.2f}'.format(a0))
-    print('SNR/echo/scan = ' + '{0:.2f}'.format(snr))
-    print('T2 = ' + '{0:.4f}'.format(T2 * 1e3) + ' msec')
+    print( 'a0 = ' + '{0:.2f}'.format( a0 ) )
+    print( 'SNR/echo/scan = ' + '{0:.2f}'.format( snr ) )
+    print( 'T2 = ' + '{0:.4f}'.format( T2 * 1e3 ) + ' msec' )
 
-    return (a, a_integ, a0, snr, T2, noise, res, theta, data_filt, echo_avg, t_echospace)
+    return ( a, a_integ, a0, snr, T2, noise, res, theta, data_filt, echo_avg, t_echospace )
 
 
-def compute_iterate(data_parent_folder, meas_folder, en_ext_param, thetaref, echoref_avg, direct_read, datain, en_fig):
+def compute_iterate( data_parent_folder, meas_folder, en_ext_param, thetaref, echoref_avg, direct_read, datain, en_fig ):
 
-    data_folder = (data_parent_folder + '/' + meas_folder + '/')
+    data_folder = ( data_parent_folder + '/' + meas_folder + '/' )
     # variables from NMR settings
-    (param_list, value_list) = data_parser.parse_info(
-        data_folder, 'acqu.par')  # read file
-    SpE = int(data_parser.find_value(
-        'nrPnts', param_list, value_list))
-    NoE = int(data_parser.find_value(
-        'nrEchoes', param_list, value_list))
-    en_ph_cycle_proc = data_parser.find_value(
-        'usePhaseCycle', param_list, value_list)
-    tE = data_parser.find_value('echoTimeRun', param_list, value_list)
-    Sf = data_parser.find_value(
-        'adcFreq', param_list, value_list) * 1e6
-    Df = data_parser.find_value(
-        'b1Freq', param_list, value_list) * 1e6
-    total_scan = int(data_parser.find_value(
-        'nrIterations', param_list, value_list))
+    ( param_list, value_list ) = data_parser.parse_info( 
+        data_folder, 'acqu.par' )  # read file
+    SpE = int( data_parser.find_value( 
+        'nrPnts', param_list, value_list ) )
+    NoE = int( data_parser.find_value( 
+        'nrEchoes', param_list, value_list ) )
+    en_ph_cycle_proc = data_parser.find_value( 
+        'usePhaseCycle', param_list, value_list )
+    tE = data_parser.find_value( 'echoTimeRun', param_list, value_list )
+    Sf = data_parser.find_value( 
+        'adcFreq', param_list, value_list ) * 1e6
+    Df = data_parser.find_value( 
+        'b1Freq', param_list, value_list ) * 1e6
+    total_scan = int( data_parser.find_value( 
+        'nrIterations', param_list, value_list ) )
     file_name_prefix = 'dat_'
     # en_ext_param = 0
     # thetaref = 0
     # echoref_avg = 0
 
-    if (direct_read):
-        (a, a_integ, a0, snr, T2, noise, res, theta, data_filt, echo_avg, t_echospace) = compute_multiple(data_parent_folder, meas_folder, file_name_prefix,
-                                                                                                          Df, Sf, tE, total_scan, en_fig, en_ext_param, thetaref, echoref_avg, direct_read, datain)
+    if ( direct_read ):
+        ( a, a_integ, a0, snr, T2, noise, res, theta, data_filt, echo_avg, t_echospace ) = compute_multiple( data_parent_folder, meas_folder, file_name_prefix,
+                                                                                                          Df, Sf, tE, total_scan, en_fig, en_ext_param, thetaref, echoref_avg, direct_read, datain )
     else:
-        (a, a_integ, a0, snr, T2, noise, res, theta, data_filt, echo_avg, t_echospace) = compute_multiple(data_parent_folder, meas_folder, file_name_prefix,
-                                                                                                          Df, Sf, tE, total_scan, en_fig, en_ext_param, thetaref, echoref_avg, 0, datain)
+        ( a, a_integ, a0, snr, T2, noise, res, theta, data_filt, echo_avg, t_echospace ) = compute_multiple( data_parent_folder, meas_folder, file_name_prefix,
+                                                                                                          Df, Sf, tE, total_scan, en_fig, en_ext_param, thetaref, echoref_avg, 0, datain )
 
     # print(snr, T2)
     return a, a_integ, a0, snr, T2, noise, res, theta, data_filt, echo_avg, Df, t_echospace
 
 
-def compute_noise(minfreq, maxfreq, data_parent_folder, meas_folder, en_fig):
+def compute_noise( minfreq, maxfreq, data_parent_folder, meas_folder, en_fig ):
 
     # variables to be input
     # data_parent_folder : the folder for all datas
@@ -350,56 +356,55 @@ def compute_noise(minfreq, maxfreq, data_parent_folder, meas_folder, en_fig):
     # en_fig            : enable figure
 
     file_name_prefix = 'dat_'
-    data_folder = (data_parent_folder + '/' + meas_folder + '/')
+    data_folder = ( data_parent_folder + '/' + meas_folder + '/' )
     fig_num = 200
 
     # variables from NMR settings
-    (param_list, value_list) = data_parser.parse_info(
-        data_folder, 'acqu.par')  # read file
-    adcFreq = int(data_parser.find_value(
-        'adcFreq', param_list, value_list))
-    nrPnts = int(data_parser.find_value(
-        'nrPnts', param_list, value_list))
-    total_scan = int(data_parser.find_value(
-        'nrIterations', param_list, value_list))
+    ( param_list, value_list ) = data_parser.parse_info( 
+        data_folder, 'acqu.par' )  # read file
+    adcFreq = int( data_parser.find_value( 
+        'adcFreq', param_list, value_list ) )
+    nrPnts = int( data_parser.find_value( 
+        'nrPnts', param_list, value_list ) )
+    total_scan = int( data_parser.find_value( 
+        'nrIterations', param_list, value_list ) )
 
     # parse file and remove DC component
     # data = np.zeros(nrPnts)
-    for m in range(1, total_scan + 1):
-        file_path = (data_folder + file_name_prefix + '{0:03d}'.format(m))
+    for m in range( 1, total_scan + 1 ):
+        file_path = ( data_folder + file_name_prefix + '{0:03d}'.format( m ) )
         # read the data from the file and store it in numpy array format
-        one_scan = np.array(data_parser.read_data(file_path))
-        one_scan = (one_scan - np.mean(one_scan)) / \
+        one_scan = np.array( data_parser.read_data( file_path ) )
+        one_scan = ( one_scan - np.mean( one_scan ) ) / \
             total_scan  # remove DC component
         # data = data + one_scan
-    
-    spectx, specty = nmr_fft(one_scan, adcFreq, 0)
-    fft_range = [i for i, value in enumerate(spectx) if (value >= minfreq and value <= maxfreq)] # limit fft display
-    print('\t\tNOISE RMS = ' + '{0:.5f}'.format(np.std(specty[fft_range]))) # standard deviation of the fft
-    
+
+    spectx, specty = nmr_fft( one_scan, adcFreq, 0 )
+    fft_range = [i for i, value in enumerate( spectx ) if ( value >= minfreq and value <= maxfreq )]  # limit fft display
+    print( '\t\tNOISE RMS = ' + '{0:.5f}'.format( np.std( specty[fft_range] ) ) )  # standard deviation of the fft
+
     if en_fig:
         plt.ion()
-        fig = plt.figure(fig_num)
+        fig = plt.figure( fig_num )
         fig.clf()
-        ax = fig.add_subplot(2, 1, 1)
-        
-        line1, = ax.plot(spectx[fft_range], specty[fft_range], 'r-')
+        ax = fig.add_subplot( 2, 1, 1 )
+
+        line1, = ax.plot( spectx[fft_range], specty[fft_range], 'r-' )
         # ax.set_ylim(-50, 0)
-        ax.set_xlabel('Frequency [MHz]')
-        ax.set_ylabel('Amplitude [a.u.]')
-        ax.set_title("Noise spectrum")
+        ax.set_xlabel( 'Frequency [MHz]' )
+        ax.set_ylabel( 'Amplitude [a.u.]' )
+        ax.set_title( "Noise spectrum" )
         ax.grid()
 
-        ax = fig.add_subplot(2, 1, 2)
-        line1, = ax.plot(one_scan, 'r-')
-        ax.set_xlabel('Time')
-        ax.set_ylabel('Amplitude [a.u.]')
-        ax.set_title("Noise amplitude")
+        ax = fig.add_subplot( 2, 1, 2 )
+        line1, = ax.plot( one_scan, 'r-' )
+        ax.set_xlabel( 'Time' )
+        ax.set_ylabel( 'Amplitude [a.u.]' )
+        ax.set_title( "Noise amplitude" )
         ax.grid()
 
         fig.canvas.draw()
         fig.canvas.flush_events()
-
 
 ''' OBSOLETE
 def compute_freqsw(data_parent_folder, meas_folder, T2bound, en_figure):

@@ -45,8 +45,8 @@ nmrObj.initNmrSystem()  # necessary to set the GPIO initial setting
 nmrObj.assertControlSignal( nmrObj.PSU_15V_TX_P_EN_msk | nmrObj.PSU_15V_TX_N_EN_msk | nmrObj.PSU_5V_TX_N_EN_msk |
                            nmrObj.PSU_5V_ADC_EN_msk | nmrObj.PSU_5V_ANA_P_EN_msk |
                            nmrObj.PSU_5V_ANA_N_EN_msk )
-nmrObj.setPreampTuning( -3, 1.5 )
-nmrObj.setMatchingNetwork( 200, 668 )
+nmrObj.setPreampTuning( -2.8, 0 )
+nmrObj.setMatchingNetwork( 200, 646 )
 # nmrObj.setSignalPath()
 # for normal path
 nmrObj.assertControlSignal( nmrObj.AMP_HP_LT1210_EN_msk |
@@ -56,7 +56,7 @@ nmrObj.assertControlSignal( nmrObj.AMP_HP_LT1210_EN_msk |
 #                           nmrObj.PAMP_IN_SEL_RX_msk | nmrObj.RX_IN_SEL_2_msk)
 
 # cpmg settings
-cpmg_freq = 4.2  # 4.06625 for CWRU lab
+cpmg_freq = 4.185  # 4.06625 for CWRU lab
 pulse1_us = 2.5  # 75 for Cheng's coil. pulse pi/2 length.
 pulse2_us = 5  # pulse pi length
 pulse1_dtcl = 0.5  # useless with current code
@@ -67,7 +67,7 @@ samples_per_echo = 512  # number of points
 echoes_per_scan = 1024  # number of echos
 # put to 10 for broadband board and 6 for tunable board
 init_adc_delay_compensation = 6  # acquisition shift microseconds.
-number_of_iteration = 8  # number of averaging
+number_of_iteration = 4096  # number of averaging
 ph_cycl_en = 1
 pulse180_t1_int = 0
 delay180_t1_int = 0

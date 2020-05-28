@@ -19,24 +19,13 @@ fig_num = 1
 en_fig = 1
 
 # measurement properties
-sta_freq = 1
-sto_freq = 4
+sta_freq = 1.8
+sto_freq = 5
 spac_freq = 0.05
 samp_freq = 25
 
 # instantiate nmr object
-nmrObj = tunable_nmr_system_2018(data_parent_folder)
-
-# remote debug setup
-if en_remote_dbg:
-    from pydevd_file_utils import setup_client_server_paths
-    PATH_TRANSLATION = [(nmrObj.client_path, nmrObj.server_path)]
-    setup_client_server_paths(PATH_TRANSLATION)
-    print("---server:%s---client:%s---" % (nmrObj.server_ip, nmrObj.client_ip))
-    pydevd.settrace(nmrObj.client_ip)
-
-work_dir = os.getcwd()
-os.chdir(data_parent_folder)
+nmrObj = tunable_nmr_system_2018(data_parent_folder, en_remote_dbg)
 
 
 # system setup
@@ -47,7 +36,7 @@ nmrObj.assertControlSignal(nmrObj.PSU_5V_TX_N_EN_msk |
                            nmrObj.PSU_5V_ANA_N_EN_msk)
 
 
-nmrObj.setMatchingNetwork(80, 10)
+nmrObj.setMatchingNetwork( 200, 668 )
 
 while True:
     nmrObj.assertControlSignal(
