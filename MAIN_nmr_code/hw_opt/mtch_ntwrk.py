@@ -1,3 +1,6 @@
+import sys
+sys.path.append( ".." )  # MAIN_nmr_code to path
+
 import numpy as np
 import csv
 from nmr_std_function.nmr_functions import compute_wobble
@@ -9,62 +12,109 @@ import time
 import shutil
 
 
-def comp_Z1(L, RL, CL, Cp, f0):
+def comp_Z1( L, RL, CL, Cp, f0 ):  # find impedance due to parallel LC (coil and Cpar)
     w0 = 2 * np.pi * f0
     Ct = CL + Cp
-    return (1j * w0 * L + RL) * (1 / (1j * w0 * Ct)) / (1j * w0 * L + RL + 1 / (1j * w0 * Ct))
+    return ( 1j * w0 * L + RL ) * ( 1 / ( 1j * w0 * Ct ) ) / ( 1j * w0 * L + RL + 1 / ( 1j * w0 * Ct ) )
 
 
-def comp_Z2(Cs, f0):
+def comp_Z2( Cs, f0 ):  # find impedance due to Cs
     w0 = 2 * np.pi * f0
-    return 1 / (1j * w0 * Cs)
+    return 1 / ( 1j * w0 * Cs )
 
 
-def read_PARAM_mtch_ntwrk_caps(filename):
-    f = open(filename)
-    csv_f = csv.reader(f)
-    cser = []
-    cpar = []
+def read_PARAM_mtch_ntwrk_caps( filename ):  # read table and store it in internal variables
+    f = open( filename )
+    csv_f = csv.reader( f )
+    CsTbl = []
+    CpTbl = []
     for i in csv_f:
-        if isFloat(i[0]):
-            cser.append(float(i[0]))
-            cpar.append(float(i[1]))
+        if isFloat( i[0] ):
+            CsTbl.append( float( i[0] ) )
+            CpTbl.append( float( i[1] ) )
     f.close()
-    return cser, cpar
+    return CsTbl, CpTbl
 
 
 # convert discrete integer format of C to real C value
-def conv_cInt_to_cReal(cInt, cTbl):
+def conv_cInt_to_cFarad( cInt, cTbl ):
     # cInt = c in integer format
     # cTbl = table for c
 
-    cReal = 0
-    for ii in range(0, 8):
-        if cInt & (1 << ii):
-            cReal += cTbl[ii]
+    cLen = len( cTbl )  # switched capacitor length
 
-    return cReal
+    cFarad = 0
+    for ii in range( 0, cLen ):
+        if cInt & ( 1 << ii ):
+            cFarad += cTbl[ii]
+
+    return cFarad
 
 
-def conv_cReal_to_cInt(cReal, cTbl):
-    # cReal = c in real capacitance
+def incr_cFarad_by_at_least( incr, cInt, cTbl ):
+    # this function increments cInt by at least incr value, and then checks if the resulting C value in Farad is actually
+    # increments by at least incr. This is a fix to a problem of incrementing by 1 (or small value), doesn't actually increment
+    # anything because the C value (in Farad) itself is not a perfect binary series, but sometimes less or more.
+
+    incrVal = incr  # make it local variable
+    while ( True ):
+        if ( cInt + incrVal ) > ( 2 ** len( cTbl ) - 1 ):
+            # if index overflow (more than the table provides), do not calculate conv_cInt_to_cFarad()
+            # immediately break the loop return the current value
+            break
+        prevVal = conv_cInt_to_cFarad( cInt, cTbl )  # find the previous Cfarad value
+        nextVal = conv_cInt_to_cFarad( cInt + incrVal, cTbl )  # find the next Cfarad value
+        if ( nextVal >= prevVal ):  # if the next value is more than the previous one, break the loop
+            break
+        else:  # otherwise increment incrVal so that the next value is more than the previous value
+            incrVal = incrVal + 1
+
+    return cInt + incrVal
+
+
+def decr_cFarad_by_at_least( decr, cInt, cTbl ):
+    # this function decrements cInt by at least decr value, and then checks if the resulting C value in Farad is actually
+    # decrements by at least decr. This is a fix to a problem of decrementing by 1 (or small value), doesn't actually decrement
+    # anything because the C value (in Farad) itself is not a perfect binary series, but sometimes less or more.
+
+    decrVal = decr  # make it local variable
+    while ( True ):
+        if ( cInt - decrVal ) <= 0:
+            # if index underflow (less than the table provides), do not calculate conv_cInt_to_cFarad()
+            # immediately break the loop and return the current value
+            break
+        prevVal = conv_cInt_to_cFarad( cInt, cTbl )
+        nextVal = conv_cInt_to_cFarad( cInt - decrVal, cTbl )
+        if ( nextVal <= prevVal ):
+            break
+        else:
+            decrVal = decrVal + 1
+
+    return cInt - decrVal
+
+
+# find cInt values in integer for a desired capacitance values in farad
+def conv_cFarad_to_cInt( cFarad, cTbl ):
+    # cFarad = c in farad
     # cTbl = table for c
 
     # increase c from 0 to maximum and find its minimum difference
-    # with cReal by trying to find minimum (cReal-c)
-    # it is done by finding point where c value exceeds cReal
+    # with cFarad by trying to find minimum (cFarad-c)
+    # it is done by finding point where c value exceeds cFarad
+
+    cLen = len( cTbl )  # switched capacitor length
 
     dC_old = 0
-    for i in range(1, 256):
+    for i in range( 1, 2 ** cLen ):
         csel = 0
-        for ii in range(0, 8):
-            if i & (1 << ii):
+        for ii in range( 0, cLen ):
+            if i & ( 1 << ii ):
                 csel += cTbl[ii]
 
-        dC = cReal - csel
+        dC = cFarad - csel
         cInt = i
-        if (dC <= 0):  # stop when dC is bigger than dC old
-            if abs(dC) < dC_old:
+        if ( dC <= 0 ):  # stop when dC is bigger than dC old
+            if abs( dC ) < dC_old:
                 cInt = i
                 break
             else:
@@ -75,176 +125,69 @@ def conv_cReal_to_cInt(cReal, cTbl):
     return cInt
 
 
-def Cp_opt(L, RL, CL, f0):
+def comp_Copt( L, RL, CL, f0 , CsTbl, CpTbl ):  # find index for Cp and Cs for a known coil parameters
 
-    filename = './PARAM_mtch_ntwrk_caps_preamp_v2.csv'
-    cser, cpar = read_PARAM_mtch_ntwrk_caps(filename)
+    CpLen = len( CpTbl )  # switched capacitor length
+    CsLen = len( CsTbl )  # switched capacitor length
 
-    Z1 = np.zeros(255, dtype=complex)
-    for i in range(1, 256):
+    # read the table
+    # filename = './PARAM_NMR_AFE_v6.csv'
+    # CsTbl, CpTbl = read_PARAM_mtch_ntwrk_caps( filename )
+
+    # generate Z1 table of all Cp values
+    Z1 = np.zeros( 2 ** CpLen - 1, dtype = complex )  # ignore 0
+    for i in range( 1, 2 ** CpLen ):
         cpar_sel = 0
-        for ii in range(0, 8):
-            if i & (1 << ii):
-                cpar_sel += cpar[ii]
-        Z1[i - 1] = comp_Z1(L, RL, CL, cpar_sel, f0)
-    max_idx = np.argwhere(Z1)[np.real(Z1) == max(
-        np.real(Z1))]  # find max index
-    # delete the values after max_index, effectively removing the 50 ohms
-    # impedance matched at the other side (dominated by capacitance, instead
-    # of coil)
-    Z1[max_idx[0][0]:] = 0
+        for ii in range( 0, CpLen ):
+            if i & ( 1 << ii ):
+                cpar_sel += CpTbl[ii]
+        Z1[i - 1] = comp_Z1( L, RL, CL, cpar_sel, f0 )
+
+    # find the resonance where Z1 is max, and then delete the part after maxval (capacitive part)
+    # to keep only the inductive part
+    max_idx = np.argwhere( Z1 )[np.real( Z1 ) == max( 
+        np.real( Z1 ) )]  # find max index
+    Z1[max_idx[0][0]:] = 0  # null all values after max index
+
     # subtract the real part of Z1 by 50 and find its absolute value
-    Z1_absmin50 = np.abs(np.real(Z1) - 50)
+    Z1_absmin50 = np.abs( np.real( Z1 ) - 50 )
+
     # find Cp index with least reflection
-    Cp_idx = np.argwhere(Z1_absmin50 == min(Z1_absmin50))
+    Cp_idx = np.argwhere( Z1_absmin50 == min( Z1_absmin50 ) )
     Cp_idx = Cp_idx[0][0]
 
-    Z2 = np.zeros(255, dtype=complex)
-    for i in range(1, 256):
+    # generate Z2 table of all Cs values
+    Z2 = np.zeros( 2 ** CsLen - 1, dtype = complex )
+    for i in range( 1, 2 ** CsLen ):
         cser_sel = 0
-        for ii in range(0, 8):
-            if i & (1 << ii):
-                cser_sel += cser[ii]
-        Z2[i - 1] = comp_Z2(cser_sel, f0)
-    # imaginary amplitude
-    Z_imag_amp = np.abs(np.imag(Z2) + np.imag(Z1[Cp_idx]))
-    Cs_idx = np.argwhere(Z_imag_amp == min(Z_imag_amp))
+        for ii in range( 0, CsLen ):
+            if i & ( 1 << ii ):
+                cser_sel += CsTbl[ii]
+        Z2[i - 1] = comp_Z2( cser_sel, f0 )
+
+    # find index where imag(Z1) + imag(Z2)
+    Z_imag_amp = np.abs( np.imag( Z2 ) + np.imag( Z1[Cp_idx] ) )
+    Cs_idx = np.argwhere( Z_imag_amp == min( Z_imag_amp ) )
     Cs_idx = Cs_idx[0][0]
 
     return Z1[Cp_idx] + Z2[Cs_idx], Cp_idx, Cs_idx
 
 
-def isFloat(val):
+def isFloat( val ):
     try:
-        float(val)
+        float( val )
         return True
     except ValueError:
         return False
 
 
-def wobb_meas(data_parent_folder, cparIdx, cserIdx, s11_obj, en_fig):
-    startfreq = 3
-    stopfreq = 5.5
-    spacfreq = 0.02
-    sampfreq = 25
-    wobb_samples = int(sampfreq / spacfreq)
-    command = ("./thesis_nmr_de1soc_hdl2.0_wobble" + " " +
-               str(cparIdx) + " " +
-               str(cserIdx) + " " +
-               str(startfreq) + " " +
-               str(stopfreq) + " " +
-               str(spacfreq) + " " +
-               str(sampfreq) + " " +
-               str(wobb_samples))
-    os.system(command + ' > /dev/null')
-    meas_folder = parse_simple_info(
-        data_parent_folder, 'current_folder.txt')
-    S11_fmin, S11_fmax, S11_bw,  minS11, minS11_freq = compute_wobble(
-        data_parent_folder, meas_folder[0], s11_obj, en_fig)
-    #print('fmin={0:0.3f} fmax={1:0.3f} bw={2:0.3f}'.format(S11_fmin, S11_fmax, S11_bw))
-
-    return S11_fmin, S11_fmax, S11_bw, minS11, minS11_freq
+def realZ ( L, RL, CL, Cp, f0 ):  # compute the real-Z part of the matching network + coil
+    w0 = 2 * np.pi * f0
+    Ct = CL + Cp
+    return RL / ( ( 1 - w0 ** 2 * L * Ct ) ** 2 + ( w0 * RL * Ct ) ** 2 )
 
 
-def find_mtch_ntwrk(data_parent_folder, nmr_freq, s11_obj, cpar_sta, cser_sta, L, RL, CL, en_fig):
-
-    # data_parent_folder : the data folder to be used for processing
-    # nmr_freq : the NMR frequency to be tuned to
-    # s11_obj : the objective reflection parameter
-    # cpar_sta : starting cpar index
-    # cser_sta : starting cser index
-    # L : approximated coil inductance
-    # RL : approximated coil parasitic resistance
-    # CL : approximated coil parasitic capacitance
-
-    # example data parent folder:
-    # data_parent_folder = "D:/DELETEME"  # for testing in windows
-    # data_parent_folder = "/root/nmr_fitting"  # for testing in linux
-
-    # threshold for minS11
-    minS11_thr = -20
-
-    # read table
-    filename = data_parent_folder + '/hw_opt/' + \
-        'PARAM_mtch_ntwrk_caps_preamp_v1.csv'
-    cserTbl, cparTbl = read_PARAM_mtch_ntwrk_caps(filename)
-
-    # initial parameter
-    cparIdx = cpar_sta
-    cserIdx = cser_sta
-    print('   START: fobj={0:.3f} cpar={1:d}({3:0.0f}pF) cser={2:d}({4:0.1f}pF)'.format(
-        nmr_freq, cparIdx, cserIdx, conv_cInt_to_cReal(cparIdx, cparTbl) * 1e12, conv_cInt_to_cReal(cserIdx, cserTbl) * 1e12))
-
-    # fixed parameters
-    max_iter = 5
-
-    for i in range(0, max_iter):
-
-        S11_fmin, S11_fmax, S11_bw, minS11, minS11_freq = wobb_meas(
-            data_parent_folder, cparIdx, cserIdx, s11_obj, en_fig)
-        print('      fmin={0:0.3f} fmax={1:0.3f} bw={2:0.3f} s11min={3:0.2f}dB s11min_freq={4:0.3f}MHz cpar={5:d}({7:0.0f}pF) cser={6:d}({8:0.1f}pF)'.format(
-            S11_fmin, S11_fmax, S11_bw, minS11, minS11_freq, cparIdx, cserIdx, conv_cInt_to_cReal(cparIdx, cparTbl) * 1e12, conv_cInt_to_cReal(cserIdx, cserTbl) * 1e12))
-
-        if (nmr_freq >= S11_fmin) & (nmr_freq <= S11_fmax):
-            break  # already optimum condition
-        else:
-            # estimate new cpar from old cpar with (f1/f2)**2 = c2/c1
-            f1 = minS11_freq
-            f2 = nmr_freq
-            cparOld = conv_cInt_to_cReal(cparIdx, cparTbl)
-            cparNew = (f1 / f2)**2 * cparOld
-            cparIdx = conv_cReal_to_cInt(cparNew, cparTbl)
-
-            # compute Cser index from the previous measurement
-            # Cser direction (1 means addition, and 0 means subtraction
-            CserDir = 1
-            Done = 0
-
-            while (1):  # find minimum S11 by sweeping cser (at constant cpar)
-                oldCserIdx = cserIdx
-                if CserDir:
-                    cserIdx = cserIdx + 3
-                else:
-                    cserIdx = cserIdx - 3
-
-                old_S11_fmin = S11_fmin
-                old_S11_fmax = S11_fmax
-                old_S11_bw = S11_bw
-                old_minS11 = minS11
-                old_minS11_freq = minS11_freq
-                S11_fmin, S11_fmax, S11_bw, minS11, minS11_freq = wobb_meas(
-                    data_parent_folder, cparIdx, cserIdx, s11_obj, 0)
-
-                if (old_minS11 < minS11):
-                    if CserDir:
-                        CserDir = 0
-                    else:
-                        Done = 1
-                    print('         fmin={0:0.3f} fmax={1:0.3f} bw={2:0.3f} s11min={3:0.2f}dB s11min_freq={4:0.3f}MHz cpar={5:d}({7:0.0f}pF) cser={6:d}({8:0.1f}pF)-FLUSHED'.format(
-                        S11_fmin, S11_fmax, S11_bw, minS11, minS11_freq, cparIdx, cserIdx, conv_cInt_to_cReal(cparIdx, cparTbl) * 1e12, conv_cInt_to_cReal(cserIdx, cserTbl) * 1e12))
-                    S11_fmin = old_S11_fmin
-                    S11_fmax = old_S11_fmax
-                    S11_bw = old_S11_bw
-                    minS11 = old_minS11
-                    minS11_freq = old_minS11_freq
-                    cserIdx = oldCserIdx
-                else:
-                    print('         fmin={0:0.3f} fmax={1:0.3f} bw={2:0.3f} s11min={3:0.2f}dB s11min_freq={4:0.3f}MHz cpar={5:d}({7:0.0f}pF) cser={6:d}({8:0.1f}pF)'.format(
-                        S11_fmin, S11_fmax, S11_bw, minS11, minS11_freq, cparIdx, cserIdx, conv_cInt_to_cReal(cparIdx, cparTbl) * 1e12, conv_cInt_to_cReal(cserIdx, cserTbl) * 1e12))
-
-                # check if the minS11 is less than minS11_thr
-                # this is to ensure that the cser is approximately at the
-                # optimum condition
-                if (Done):
-                    if (minS11_thr < minS11):
-                        print('      warning: S11 of {0:0.2f}dB at {1:0.3f}MHz is not low enough: target S11 is {2:0.2f}dB'.format(
-                            minS11, minS11_freq, minS11_thr))
-                    else:
-                        print('      S11 of {0:0.2f}dB at {1:0.3f}MHz satisfied the target S11 of {2:0.2f}dB'.format(
-                            minS11, minS11_freq, minS11_thr))
-                    break  # already optimum condition
-
-            print('   fcurr={0:0.2f} fobj={1:0.2f} cpar={2:d}({4:0.0f}pF) cser={3:d}({5:0.1f}pF)'.
-                  format(minS11_freq, nmr_freq, cparIdx, cserIdx, conv_cInt_to_cReal(cparIdx, cparTbl) * 1e12, conv_cInt_to_cReal(cserIdx, cserTbl) * 1e12))
-
-    return cparIdx, cserIdx, S11_fmin, S11_fmax
+def imagZ ( L, RL, CL, Cp, Cs, f0 ):  # compute the imag-Z part of the matching network + coil
+    w0 = 2 * np.pi * f0
+    Ct = CL + Cp
+    return 1j * w0 * ( L - w0 ** 2 * L ** 2 * Cp - RL ** 2 * Cp ) / ( ( 1 - w0 ** 2 * L * Cp ) ** 2 + ( w0 * RL * Cp ) ** 2 ) + 1 / 1j * w0 * Cs

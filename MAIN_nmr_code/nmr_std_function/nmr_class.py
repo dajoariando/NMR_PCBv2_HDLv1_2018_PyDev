@@ -61,6 +61,14 @@ class tunable_nmr_system_2018:
         # General control defaults for the FPGA
         self.gnrl_cnt = 0
 
+        # Numeric conversion of the hardware
+        self.pamp_gain_dB = 60  # preamp gain
+        self.rx_gain_dB = 20  # rx amp gain
+        self.totGain = 10 ** ( ( self.pamp_gain_dB + self.rx_gain_dB ) / 20 )
+        self.uvoltPerDigit = 3.2 * ( 10 ** 6 ) / 16384  # ADC conversion, in microvolt
+        self.fir_gain = 21513  # downconversion FIR filter gain (sum of all coefficients)
+        self.dconv_gain = 0.707106781  # downconversion gain factor due to sine(45,135,225,315) multiplication
+
         # ip addresses settings for the system
         self.server_ip = '192.168.137.10'
         self.client_ip = '192.168.137.1'
@@ -267,6 +275,16 @@ class tunable_nmr_system_2018:
                    )
         os.system( command )  # execute command & ignore its console
 
+    def pamp_char( self, sta_freq, sto_freq, spac_freq, samp_freq ):
+        # execute cpmg sequence
+        command = ( self.work_dir + self.exec_folder + "pamp_char" + " " +
+                   str( sta_freq ) + " " +
+                   str( sto_freq ) + " " +
+                   str( spac_freq ) + " " +
+                   str( samp_freq )
+                   )
+        os.system( command )  # execute command & ignore its console
+
     def cpmgT1( self, cpmg_freq, pulse1_us, pulse2_us, pulse1_dtcl, pulse2_dtcl, echo_spacing_us, scan_spacing_us, samples_per_echo, echoes_per_scan, init_adc_delay_compensation, number_of_iteration, ph_cycl_en, pulse180_t1_us, logsw, delay180_sta, delay180_sto, delay180_ste, ref_number_of_iteration, ref_twait_mult, data_folder, en_scan_fig, en_fig ):
 
         # create t1 measurement folder
@@ -421,3 +439,34 @@ class tunable_nmr_system_2018:
         shutil.copy( 'measurement_history_matlab_script.txt', t1_meas_folder )
 
         return delay180_t1_sw, a0_table, a0_ref, asum_table, t1_opt, t1_meas_folder
+
+''' OBSOLETE
+    def setSignalPath( self ):  # ONLY VALID FOR v4.0 and below
+        # activate transmitter and stuffs
+        self.gnrl_cnt = self.gnrl_cnt | self.AMP_HP_LT1210_EN_msk | self.PAMP_IN_SEL_RX_msk | self.RX_IN_SEL_1_msk
+        os.system(
+            self.work_dir + self.exec_folder + "i2c_gnrl" + " " +
+            str( self.gnrl_cnt )
+        )
+
+    def turnOnPower( self ):  # ONLY VALID FOR v4.0 and below
+        # Turn on power supply
+        self.gnrl_cnt = self.PSU_15V_TX_P_EN_msk | self.PSU_15V_TX_N_EN_msk | self.PSU_5V_TX_N_EN_msk | self.PSU_5V_ADC_EN_msk | self.PSU_5V_ANA_P_EN_msk | self.PSU_5V_ANA_N_EN_msk
+        os.system(
+            self.work_dir + self.exec_folder + "i2c_gnrl" + " " +
+            str( self.gnrl_cnt )
+        )
+
+    def turnOffSystem( self ):  # ONLY VALID FOR v4.0 and below
+        # Turn off matching network
+        os.system(
+            self.work_dir + self.exec_folder + "i2c_mtch_ntwrk" + " " +
+            str( 0 ) + " " +
+            str( 0 )
+        )
+        # Disable all power and path
+        os.system(
+            self.work_dir + self.exec_folder + "i2c_gnrl" + " " +
+            str( 0 )
+        )
+'''
